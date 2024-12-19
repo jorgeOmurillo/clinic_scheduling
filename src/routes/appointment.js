@@ -35,5 +35,26 @@ router.get("/available", (req, res) => {
   }
 });
 
+// POST /api/appointments
+// Book a new appointment
+router.post("/", (req, res) => {
+  try {
+    const { type, startTime } = req.body;
+
+    if (!type || !startTime) {
+      return res.status(400).json({
+        error: "Appointment type and start time are required",
+      });
+    }
+
+    const appointment = schedulingService.bookAppointment(
+      type,
+      new Date(startTime)
+    );
+    res.status(201).json(appointment);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
 
 module.exports = router;
