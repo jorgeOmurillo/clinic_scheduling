@@ -23,7 +23,6 @@ router.get("/available", (req, res) => {
       });
     }
 
-    // TODO: Implement getAvailableSlots in SchedulingService
     const availableSlots = schedulingService.getAvailableSlots(
       requestedDate,
       type
