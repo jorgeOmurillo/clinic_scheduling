@@ -10,6 +10,7 @@ class Appointment {
       throw new Error("Invalid appointment type");
     }
     this.type = type;
+    // Store the original UTC time
     this.startTime = new Date(startTime);
     this.duration = this.getDuration();
     this.endTime = this.calculateEndTime();

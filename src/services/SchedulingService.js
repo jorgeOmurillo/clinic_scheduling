@@ -3,16 +3,33 @@ const Appointment = require("../models/Appointment");
 class SchedulingService {
   constructor() {
     this.appointments = new Map();
+    // EST offset during standard time
+    this.clinicTimezoneOffset = -5;
+  }
+
+  convertToClinicTime(date) {
+    const clientDate = new Date(date);
+    // Create new date object for clinic time
+    const clinicDate = new Date(clientDate.valueOf());
+    // Get UTC hours and add clinic offset
+    const utcHours = clientDate.getUTCHours();
+    clinicDate.setUTCHours(utcHours + this.clinicTimezoneOffset);
+    return clinicDate;
   }
 
   isWithinClinicHours(date) {
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
+    const clinicTime = this.convertToClinicTime(date);
+    const hours = clinicTime.getUTCHours();
+    const minutes = clinicTime.getUTCMinutes();
+
     return hours >= 9 && (hours < 17 || (hours === 17 && minutes === 0));
   }
 
   isValidStartTime(date) {
-    return date.getMinutes() === 0 || date.getMinutes() === 30;
+    const clinicTime = this.convertToClinicTime(date);
+    return (
+      clinicTime.getUTCMinutes() === 0 || clinicTime.getUTCMinutes() === 30
+    );
   }
 
   isTwoHoursBeforeNow(date) {
@@ -47,8 +64,9 @@ class SchedulingService {
     const appointment = new Appointment(type, startTime);
     this.validateAppointmentTime(appointment);
 
-    // Check for overlapping appointments
-    const dateKey = appointment.startTime.toDateString();
+    const dateKey = this.convertToClinicTime(
+      appointment.startTime
+    ).toDateString();
     const existingAppointments = this.appointments.get(dateKey) || [];
 
     if (
@@ -65,49 +83,62 @@ class SchedulingService {
   }
 
   getAvailableSlots(date, type) {
-    const appointmentDuration =
-      Appointment.TYPES[type]?.duration ||
-      Object.values(Appointment.TYPES).find((t) => t.name === type)?.duration;
+    const appointmentDuration = Object.values(Appointment.TYPES).find(
+      (t) => t.name === type
+    )?.duration;
 
     if (!appointmentDuration) {
       throw new Error("Invalid appointment type");
     }
 
-    const slots = [];
+    // Convert input date to clinic's timezone
     const requestedDate = new Date(date);
+    // Set to midnight of the requested date
+    requestedDate.setUTCHours(0, 0, 0, 0);
+
     const existingAppointments =
       this.appointments.get(requestedDate.toDateString()) || [];
 
-    // Start from 9 AM
-    const startTime = new Date(requestedDate.setHours(9, 0, 0, 0));
-    // End at 5 PM
-    const endTime = new Date(requestedDate.setHours(17, 0, 0, 0));
+    // Calculate clinic opening time in UTC
+    const clinicOpenTime = new Date(requestedDate);
+    clinicOpenTime.setUTCHours(14, 0, 0, 0); // 9 AM EST = 14:00 UTC
 
-    // Check every 30-minute slot
-    const currentSlot = new Date(startTime);
-    while (currentSlot < endTime) {
-      const potentialAppointment = new Appointment(type, currentSlot);
+    // Calculate clinic closing time in UTC
+    const clinicCloseTime = new Date(requestedDate);
+    clinicCloseTime.setUTCHours(22, 0, 0, 0); // 5 PM EST = 22:00 UTC
 
-      // Skip if the appointment would end after clinic hours
-      if (potentialAppointment.endTime > endTime) {
-        break;
-      }
+    const slots = [];
+    const currentSlot = new Date(clinicOpenTime);
 
-      // Check if the slot is available
-      const isOverlapping = existingAppointments.some((existing) =>
-        existing.overlaps(potentialAppointment)
+    while (currentSlot < clinicCloseTime) {
+      // Check if adding the appointment duration would exceed closing time
+      const potentialEndTime = new Date(currentSlot);
+      potentialEndTime.setMinutes(
+        potentialEndTime.getMinutes() + appointmentDuration
       );
 
-      // For same-day appointments, check 2-hour advance booking rule
-      const isTooSoon =
-        currentSlot.toDateString() === new Date().toDateString() &&
-        !this.isTwoHoursBeforeNow(currentSlot);
+      if (potentialEndTime <= clinicCloseTime) {
+        const potentialAppointment = new Appointment(
+          type,
+          new Date(currentSlot)
+        );
 
-      if (!isOverlapping && !isTooSoon) {
-        slots.push(new Date(currentSlot));
+        // Check for overlapping appointments
+        const isOverlapping = existingAppointments.some((existing) =>
+          existing.overlaps(potentialAppointment)
+        );
+
+        // For same-day appointments, check 2-hour advance booking rule
+        const isTooSoon =
+          currentSlot.toDateString() === new Date().toDateString() &&
+          !this.isTwoHoursBeforeNow(currentSlot);
+
+        if (!isOverlapping && !isTooSoon) {
+          slots.push(new Date(currentSlot));
+        }
       }
 
-      // Move to next slot
+      // Move to next 30-minute slot
       currentSlot.setMinutes(currentSlot.getMinutes() + 30);
     }
 
