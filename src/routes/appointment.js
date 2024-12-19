@@ -57,4 +57,21 @@ router.post("/", (req, res) => {
   }
 });
 
+// GET /api/appointments/today
+// Get all appointments for today (for practitioner)
+router.get("/today", (req, res) => {
+  try {
+    const today = new Date();
+    const appointments =
+      schedulingService.appointments.get(today.toDateString()) || [];
+
+    // Sort appointments by start time
+    appointments.sort((a, b) => a.startTime - b.startTime);
+
+    res.json({ appointments });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
