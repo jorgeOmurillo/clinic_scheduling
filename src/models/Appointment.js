@@ -28,7 +28,9 @@ class Appointment {
   }
 
   overlaps(other) {
-    return this.startTime < other.endTime && this.endTime > other.startTime;
+    const overlaps =
+      this.startTime < other.endTime && this.endTime > other.startTime;
+    return overlaps;
   }
 }
 

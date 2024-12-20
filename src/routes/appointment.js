@@ -17,6 +17,7 @@ router.get("/available", (req, res) => {
     }
 
     const requestedDate = new Date(date);
+
     if (isNaN(requestedDate.getTime())) {
       return res.status(400).json({
         error: "Invalid date format",
@@ -28,7 +29,9 @@ router.get("/available", (req, res) => {
       type
     );
 
-    res.json({ availableSlots });
+    const formattedSlots = availableSlots.map((slot) => slot.toISOString());
+
+    res.json({ availableSlots: formattedSlots });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
