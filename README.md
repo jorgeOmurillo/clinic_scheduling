@@ -43,7 +43,7 @@ clinic-scheduler/
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/jorgeOmurillo/clinic_scheduling
 cd clinic-scheduler
 ```
 
@@ -169,7 +169,7 @@ Example response:
 Run the test suite:
 
 ```bash
-jest test
+./node_modules/.bin/jest --watch
 ```
 
 ## Assumptions
